@@ -95,87 +95,158 @@ export default class WebInitTracker extends Plugin {
                     const data = this.app.plugins.plugins['initiative-tracker'].data.state;
 					const creatureOrds = {};
 
-                    const rows = data.creatures.map((creature) => {
-						if (creature.hidden) {
-							return null;
-						}
-
-                        const out = {
-                            name: creature.name,
-                            initiative: creature.initiative,
-                            isActive: creature.active,
-                            rowStatColData: []
-                        };
-
-                        if (creature.display) out.customName = creature.display;
-
-                        if (creature.player) {
-                            out.hpCurrent = creature.currentHP;
-                            out.hpMax = creature.currentMaxHP;
-                        } else {
-                            out.hpWoundLevel = this._getWoundLevel(creature.currentHP, creature.currentMaxHP);
-                        }
-
-						out.conditions = creature.status.map((status) => {
-							status = status.toLowerCase();
-							const statusData = conditionData[this.settings.system][status];
-
-							if (this.conditions[status] === undefined) {
-								this.conditions[status] = {};
+					if (this.settings.system === 'dnd5e') {
+						const rows = data.creatures.map((creature) => {
+							if (creature.hidden) {
+								return null;
 							}
-							
-							if (this.conditions[status][creature.id] === undefined) {
-								this.conditions[status][creature.id] = uuidv4();
-							}
-							
-							return {
-								entity: statusData,
-								rounds: null,
-								id: this.conditions[status][creature.id]
+	
+							const out = {
+								name: creature.name,
+								initiative: creature.initiative,
+								isActive: creature.active,
+								rowStatColData: []
 							};
-						});
-
-						if (creatureOrds[out.name] === undefined) {
-							creatureOrds[out.name] = false;
-						} else if (creatureOrds[out.name] === false) {
-							creatureOrds[out.name] = true;
-						}
-
-                        return out;
-                    }).filter((v) => v !== null);
-
-					for (const [key, value] of Object.entries(creatureOrds)) {
-						if (value !== true) {
-							continue;
-						}
-
-						var i = 1;
-
-						rows.forEach((val) => {
-							if (val.name == key) {
-								val.ordinal = i;
-								i += 1;
+	
+							if (creature.display) out.customName = creature.display;
+	
+							if (creature.player) {
+								out.hpCurrent = creature.currentHP;
+								out.hpMax = creature.currentMaxHP;
+								out.o = null;
+							} else {
+								out.hpWoundLevel = this._getWoundLevel(creature.currentHP, creature.currentMaxHP);
 							}
+	
+							out.conditions = creature.status.map((status) => {
+								status = status.toLowerCase();
+								const statusData = conditionData[this.settings.system][status];
+	
+								if (this.conditions[status] === undefined) {
+									this.conditions[status] = {};
+								}
+								
+								if (this.conditions[status][creature.id] === undefined) {
+									this.conditions[status][creature.id] = uuidv4();
+								}
+								
+								return {
+									entity: statusData,
+									rounds: null,
+									id: this.conditions[status][creature.id]
+								};
+							});
+	
+							if (creatureOrds[out.name] === undefined) {
+								creatureOrds[out.name] = false;
+							} else if (creatureOrds[out.name] === false) {
+								creatureOrds[out.name] = true;
+							}
+	
+							return out;
+						}).filter((v) => v !== null);
+	
+						for (const [key, value] of Object.entries(creatureOrds)) {
+							if (value !== true) {
+								continue;
+							}
+	
+							var i = 1;
+	
+							rows.forEach((val) => {
+								if (val.name == key) {
+									val.ordinal = i;
+									i += 1;
+								}
+							});
+						}
+	
+						rows.sort((a, b) => {
+							return b.initiative - a.initiative;
 						});
+	
+						conn.dataChannel.send(JSON.stringify({
+							head: {
+								type: 'server',
+								version: '0.0.2'
+							},
+							data: {
+								type: 'state',
+								payload: {
+									round: data.round,
+									rows
+								}
+							}
+						}));
+					} else {
+						const rows = data.creatures.map((creature) => {
+							if (creature.hidden) {
+								return null;
+							}
+	
+							const out = {
+								n: creature.name,
+								i: creature.initiative,
+								a: creature.active ? 1 : 0,
+								k: []
+							};
+	
+							if (creature.display) out.m = creature.display;
+	
+							if (creature.player) {
+								out.h = creature.currentHP;
+								out.g = creature.currentMaxHP;
+							} else {
+								out.hh = this._getWoundLevel(creature.currentHP, creature.currentMaxHP);
+							}
+	
+							out.c = creature.status.map((status) => {
+								status = status.toLowerCase();
+								const statusData = conditionData[this.settings.system][status];
+								statusData.turns = null;
+								return statusData;
+							});
+	
+							if (creatureOrds[out.n] === undefined) {
+								creatureOrds[out.n] = false;
+							} else if (creatureOrds[out.n] === false) {
+								creatureOrds[out.n] = true;
+							}
+	
+							return out;
+						}).filter((v) => v !== null);
+
+						for (const [key, value] of Object.entries(creatureOrds)) {
+							if (value !== true) {
+								continue;
+							}
+	
+							var i = 1;
+	
+							rows.forEach((val) => {
+								if (val.n == key) {
+									val.o = i;
+									i += 1;
+								}
+							});
+						}
+
+						rows.sort((a, b) => {
+							return b.i - a.i;
+						});
+
+						conn.dataChannel.send(JSON.stringify({
+							head: {
+								type: 'server',
+								version: '0.0.2'
+							},
+							data: {
+								c: [],
+								n: data.round,
+								r: rows
+							}
+						}))
 					}
-
-                    rows.sort((a, b) => {
-                        return b.initiative - a.initiative;
-                    });
-
-                    conn.dataChannel.send(JSON.stringify({
-                        head: {
-                            type: 'server',
-                            version: '0.0.2'
-                        },
-                        data: {
-                            type: 'state',
-                            payload: {
-                                round: data.round,
-                                rows
-                            }
-                        }
-                    }));
                 }
             });
 
@@ -183,15 +254,17 @@ export default class WebInitTracker extends Plugin {
 				if ((document.querySelectorAll('div[data-type="initiative-tracker-view"]').length > 0) && (document.querySelectorAll('div.web-init-view').length === 0)) {
 					this.initLoaded = true;
 					const webDiv = this.app.plugins.plugins['initiative-tracker'].view.containerEl.createEl('div', { cls: 'web-init-view' });
-					const copyField = webDiv.createEl('input');
-					copyField.setAttribute('aria-label', 'Copy token');
-					setIcon(copyField, 'copy');
-					copyField.setAttribute('value', this.server.id);
-					copyField.onclick = () => {
+					this.copyField = webDiv.createEl('input');
+					this.copyField.setAttribute('aria-label', 'Copy token');
+					setIcon(this.copyField, 'copy');
+					this.copyField.setAttribute('value', this.server.id);
+					this.copyField.onclick = () => {
 						navigator.clipboard.writeText(this.server.id);
 						new Notice('Copied token to clipboard');
 					};
 				}
+			} else {
+				this.copyField.setAttribute('value', this.server.id);
 			}
         }, 100);
 
