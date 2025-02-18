@@ -85,16 +85,7 @@ const DEFAULT_SETTINGS: WebInitTrackerSettings = {
 export default class WebInitTracker extends Plugin {
 	settings: WebInitTrackerSettings;
 
-	async onload() {
-		await this.loadSettings();
-
-		if (!this.app.plugins.enabledPlugins.has('initiative-tracker')) {
-			console.log('Not detecting Initiative Tracker plugin, disabling...');
-			this.app.plugins.disablePluginAndSave('obsidian-web-init-tracker');
-		}
-
-		// this.server = new PeerVeClient();
-
+	loadServer() {
 		this.server = new PeerVeServer();
 		this.server.onTemp('open', (id) => console.log(id));
 		
@@ -104,6 +95,7 @@ export default class WebInitTracker extends Plugin {
             this.server.connections.forEach((conn) => {
                 if (conn.dataChannel) {
                     const data = this.app.plugins.plugins['initiative-tracker'].data.state;
+					const creatureOrds = {};
 
                     const rows = data.creatures.map((creature) => {
 						if (creature.hidden) {
@@ -145,8 +137,29 @@ export default class WebInitTracker extends Plugin {
 							};
 						});
 
+						if (creatureOrds[out.name] === undefined) {
+							creatureOrds[out.name] = false;
+						} else if (creatureOrds[out.name] === false) {
+							creatureOrds[out.name] = true;
+						}
+
                         return out;
                     }).filter((v) => v !== null);
+
+					for (const [key, value] of Object.entries(creatureOrds)) {
+						if (value !== true) {
+							continue;
+						}
+
+						var i = 1;
+
+						rows.forEach((val) => {
+							if (val.name == key) {
+								val.ordinal = i;
+								i += 1;
+							}
+						});
+					}
 
                     rows.sort((a, b) => {
                         return b.initiative - a.initiative;
@@ -170,6 +183,22 @@ export default class WebInitTracker extends Plugin {
         }, 100);
 
         this.registerInterval(interval);
+	}
+
+	loadClient() {
+		this.server = new PeerVeClient();
+	}
+
+	async onload() {
+		await this.loadSettings();
+
+		if (!this.app.plugins.enabledPlugins.has('initiative-tracker')) {
+			console.log('Not detecting Initiative Tracker plugin, disabling...');
+			this.app.plugins.disablePluginAndSave('obsidian-web-init-tracker');
+		}
+
+		this.loadServer();
+		//this.loadClient();
 
 		this.addSettingTab(new WebInitTrackerSettingsTab(this.app, this));
 	}
