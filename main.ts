@@ -70,7 +70,130 @@ const conditionData = {
 		}
 	},
 	pf2e: {
-
+		blinded: {
+			name: 'Blinded',
+			color: '#525252'
+		},
+		clumsy: {
+			name: 'Clumsy #',
+			color: '#5c57af'
+		},
+		concealed: {
+			name: 'Concealed',
+			color: '#525252'
+		},
+		confused: {
+			name: 'Confused',
+			color: '#c9c91e'
+		},
+		controlled: {
+			name: 'Controlled',
+			color: '#ed07bb'
+		},
+		dazzled: {
+			name: 'Dazzled',
+			color: '#db8f48'
+		},
+		deafened: {
+			name: 'Deafened',
+			color: '#666464'
+		},
+		doomed: {
+			name: 'Doomed #',
+			color: '#9e1414'
+		},
+		drained: {
+			name: 'Drained',
+			color: '#72aa01'
+		},
+		dying: {
+			name: 'Dying #',
+			color: '#ff0000'
+		},
+		enfeebled: {
+			name: 'Enfeebled #',
+			color: '#42a346'
+		},
+		fascinated: {
+			name: 'Fascinated',
+			color: 'fc7b02'
+		},
+		fatigued: {
+			name: 'Fatigued',
+			color: '#7913c6'
+		},
+		fleeing: {
+			name: 'Fleeing',
+			color: '#c9ca18'	
+		},
+		frightened: {
+			name: 'Frightened #',
+			color: '#c9ca18'
+		},
+		grabbed: {
+			name: 'Grabbed',
+			color: '#00e0ac'
+		},
+		immobilized: {
+			name: 'Immobilized',
+			color: '#009f7a'
+		},
+		invisible: {
+			name: 'Invisible',
+			color: '#71738c'
+		},
+		'off-guard': {
+			name: 'Off-Guard',
+			color: '#7f7f7f'
+		},
+		paralyzed: {
+			name: 'Paralyzed',
+			color: '#015642'
+		},
+		'persistent damage': {
+			name: 'Persistent Damage',
+			color: '#ed6904'
+		},
+		petrified: {
+			name: 'Petrified',
+			color: '#2fd62f'
+		},
+		prone: {
+			name: 'Prone',
+			color: '#00e070'
+		},
+		quickened: {
+			name: 'Quickened',
+			color: '#00d5e0'
+		},
+		restrained: {
+			name: 'Restrained',
+			color: '#007c5f'
+		},
+		sickened: {
+			name: 'Sickened #',
+			color: '#008202'
+		},
+		slowed: {
+			name: 'Slowed #',
+			color: '#2922a5'
+		},
+		stunned: {
+			name: 'Stunned #',
+			color: '#4b43db'
+		},
+		stupefied: {
+			name: 'Stupefied',
+			color: '#c94873'	
+		},
+		unconscious: {
+			name: 'Unconscious',
+			color: '#a0111b'
+		},
+		wounded: {
+			name: 'Wounded #',
+			color: '#e81919'
+		}
 	}
 }
 
@@ -285,8 +408,8 @@ export default class WebInitTracker extends Plugin {
 			this.app.plugins.disablePluginAndSave('obsidian-web-init-tracker');
 		}
 
-		this.loadServer();
-		//this.loadClient();
+		//this.loadServer();
+		this.loadClient();
 
 		this.addSettingTab(new WebInitTrackerSettingsTab(this.app, this));
 	}
@@ -329,15 +452,6 @@ class WebInitTrackerSettingsTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('System')
 			.setDesc('The system to use for the initiative tracker')
-			/*.addDropdown(new DropdownComponent(containerEl)
-				.addOption('dnd5e', 'Dungeons & Dragons 5th Edition')
-				.addOption('pf2e', 'Pathfinder 2nd Edition')
-				.setValue('dnd5e')
-				.onChange(async (value) => {
-					this.plugin.settings.system = value;
-					await this.plugin.saveSettings();
-				})
-			);*/
 			.addDropdown(dropdown => dropdown
 				.addOption('dnd5e', 'Dungeons & Dragons 5th Edition')
 				.addOption('pf2e', 'Pathfinder 2nd Edition')
