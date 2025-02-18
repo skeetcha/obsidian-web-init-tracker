@@ -1,4 +1,4 @@
-import { App, DropdownComponent, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, setIcon, Notice } from 'obsidian';
 import { PeerVeClient, PeerVeServer } from './utils-p2p';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -86,9 +86,7 @@ export default class WebInitTracker extends Plugin {
 	settings: WebInitTrackerSettings;
 
 	loadServer() {
-		this.server = new PeerVeServer();
-		this.server.onTemp('open', (id) => console.log(id));
-		
+		this.server = new PeerVeServer();		
 		this.conditions = {};
 
 		const interval = setInterval(() => {
@@ -180,6 +178,21 @@ export default class WebInitTracker extends Plugin {
                     }));
                 }
             });
+
+			if (!this.initLoaded) {
+				if ((document.querySelectorAll('div[data-type="initiative-tracker-view"]').length > 0) && (document.querySelectorAll('div.web-init-view').length === 0)) {
+					this.initLoaded = true;
+					const webDiv = this.app.plugins.plugins['initiative-tracker'].view.containerEl.createEl('div', { cls: 'web-init-view' });
+					const copyField = webDiv.createEl('input');
+					copyField.setAttribute('aria-label', 'Copy token');
+					setIcon(copyField, 'copy');
+					copyField.setAttribute('value', this.server.id);
+					copyField.onclick = () => {
+						navigator.clipboard.writeText(this.server.id);
+						new Notice('Copied token to clipboard');
+					};
+				}
+			}
         }, 100);
 
         this.registerInterval(interval);
@@ -190,6 +203,8 @@ export default class WebInitTracker extends Plugin {
 	}
 
 	async onload() {
+		this.initLoaded = false;
+
 		await this.loadSettings();
 
 		if (!this.app.plugins.enabledPlugins.has('initiative-tracker')) {
