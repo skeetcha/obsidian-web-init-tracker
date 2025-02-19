@@ -207,172 +207,266 @@ const DEFAULT_SETTINGS: WebInitTrackerSettings = {
 
 export default class WebInitTracker extends Plugin {
 	settings: WebInitTrackerSettings;
+	server: PeerVeServer;
+	client: PeerVeClient;
+	conditions: Object;
+	initLoaded: Boolean;
+	copyField: HTMLElement;
+	round: number;
+
+	updateServer(data) {
+		this.server.connections.forEach((conn) => {
+			if (conn.dataChannel) {
+				if (this.settings.system === 'dnd5e') {
+					const rows = data.map((creature) => {
+						if (creature.hidden) {
+							return null;
+						}
+
+						const out = {
+							name: creature.name,
+							initiative: creature.initiative,
+							isActive: creature.active,
+							rowStatColData: []
+						};
+
+						if (creature.display) out.customName = creature.display;
+
+						if (creature.player) {
+							out.hpCurrent = creature.hp;
+							out.hpMax = creature.current_max;
+							out.o = null;
+						} else {
+							out.hpWoundLevel = this._getWoundLevel(creature.hp, creature.current_max);
+						}
+
+						out.conditions = Array.from(creature.status).map((status) => {
+							status.name = status.name.toLowerCase();
+
+							if (this.conditions[status.name] === undefined) {
+								this.conditions[status.name] = {};
+							}
+
+							if (this.conditions[status.name][creature.id] === undefined) {
+								this.conditions[status.name][creature.id] = uuidv4();
+							}
+
+							return {
+								entity: conditionData[this.settings.system][status.name],
+								rounds: null,
+								id: this.conditions[status.name][creature.id]
+							};
+						});
+
+						out.ordinal = creature.number > 0 ? creature.number : null;
+						return out;
+					}).filter((v) => v !== null);
+
+					conn.dataChannel.send(JSON.stringify({
+						head: {
+							type: 'server',
+							version: '0.0.2'
+						},
+						data: {
+							type: 'state',
+							payload: {
+								round: this.round,
+								rows
+							}
+						}
+					}));
+				} else {
+					const rows = data.map((creature) => {
+						if (creature.hidden) {
+							return null;
+						}
+
+						const out = {
+							n: creature.name,
+							i: creature.initiative,
+							a: creature.active ? 1 : 0,
+							k: []
+						};
+
+						if (creature.display) out.m = creature.display;
+
+						if (creature.player) {
+							out.h = creature.hp;
+							out.g = creature.current_max;
+						} else {
+							out.hh = this._getWoundLevel(creature.hp, creature.current_max);
+						}
+
+						out.c = Array.from(creature.status).map((status) => {
+							const statusName = status.name.toLowerCase();
+							const sdata = conditionData[this.settings.system][statusName];
+
+							const statusData = {
+								name: sdata.name,
+								color: sdata.color
+							};
+
+							if (status.hasAmount) {
+								statusData.name = statusData.name.replace('#', status.amount.toString());
+							}
+
+							statusData.turns = null;
+							return statusData;
+						});
+
+						out.o = creature.number > 0 ? creature.number : null;
+
+						return out;
+					}).filter((v) => v !== null);
+
+					rows.sort((a, b) => b.i - a.i);
+
+					conn.dataChannel.send(JSON.stringify({
+						head: {
+							type: 'server',
+							version: '0.0.2'
+						},
+						data: {
+							r: rows,
+							n: this.round.toString(),
+							c: []
+						}
+					}));
+				}
+			}
+		});
+	}
+
+	firstMessage(conn) {
+		const data = this.app.plugins.plugins['initiative-tracker'].data;
+		this.round = data.state.round;
+		const creatureOrds = {};
+
+		if (this.settings.system === 'dnd5e') {
+			const rows = data.state.creatures.map((creature) => {
+				if (creature.hidden) {
+					return null;
+				}
+
+				const out = {
+					name: creature.name,
+					initiative: creature.initiative,
+					isActive: creature.active,
+					rowStatColData: []
+				};
+
+				if (creature.display) out.customName = creature.display;
+
+				if (creature.player) {
+					out.hpCurrent = creature.currentHP;
+					out.hpMax = creature.currentMaxHP;
+				} else {
+					out.hpWoundLevel = this._getWoundLevel(creature.currentHP, creature.currentMaxHP);
+				}
+
+				out.conditions = [];
+
+				if (creatureOrds[out.name] === undefined) {
+					creatureOrds[out.name] = false;
+				} else if (creatureOrds[out.name] === false) {
+					creatureOrds[out.name] = true;
+				}
+			}).filter((v) => v !== null);
+
+			for (const [key, value] of Object.entries(creatureOrds)) {
+				if (value !== true) continue;
+
+				var i = 1;
+
+				rows.forEach((row) => {
+					if (row.name == key) {
+						row.ordinal = i;
+						i += 1;
+					}
+				});
+			}
+
+			rows.sort((a, b) => b.initiative - a.initiative);
+
+			conn.dataChannel.send(JSON.stringify({
+				head: {
+					type: 'server',
+					version: '0.0.2'
+				},
+				data: {
+					type: 'state',
+					payload: {
+						round: this.round,
+						rows
+					}
+				}
+			}));
+		} else {
+			const rows = data.state.creatures.map((creature) => {
+				if (creature.hidden) {
+					return null;
+				}
+
+				const out = {
+					n: creature.name,
+					i: creature.initiative,
+					a: creature.active,
+					k: []
+				};
+
+				if (creature.display) out.m = creature.display;
+
+				if (creature.player) {
+					out.h = creature.currentHP;
+					out.g = creature.currentMaxHP;
+				} else {
+					out.hh = this._getWoundLevel(creature.currentHP, creature.currentMaxHP);
+				}
+
+				out.conditions = [];
+
+				if (creatureOrds[out.name] === undefined) {
+					creatureOrds[out.name] = false;
+				} else if (creatureOrds[out.name] === false) {
+					creatureOrds[out.name] = true;
+				}
+
+				return out;
+			}).filter((v) => v !== null);
+
+			for (const [key, value] of Object.entries(creatureOrds)) {
+				if (value !== true) continue;
+
+				var i = 1;
+
+				rows.forEach((row) => {
+					if (row.n == key) {
+						row.o = i;
+						i += 1;
+					}
+				});
+			}
+
+			rows.sort((a, b) => b.initiative - a.initiative);
+
+			conn.dataChannel.send(JSON.stringify({
+				head: {
+					type: 'server',
+					version: '0.0.2'
+				},
+				data: {
+					n: this.round.toString(),
+					r: rows
+				}
+			}));
+		}
+	}
 
 	loadServer() {
 		this.server = new PeerVeServer();		
 		this.conditions = {};
 
 		const interval = setInterval(() => {
-            this.server.connections.forEach((conn) => {
-                if (conn.dataChannel) {
-                    const data = this.app.plugins.plugins['initiative-tracker'].data.state;
-					const creatureOrds = {};
-
-					if (this.settings.system === 'dnd5e') {
-						const rows = data.creatures.map((creature) => {
-							if (creature.hidden) {
-								return null;
-							}
-	
-							const out = {
-								name: creature.name,
-								initiative: creature.initiative,
-								isActive: creature.active,
-								rowStatColData: []
-							};
-	
-							if (creature.display) out.customName = creature.display;
-	
-							if (creature.player) {
-								out.hpCurrent = creature.currentHP;
-								out.hpMax = creature.currentMaxHP;
-								out.o = null;
-							} else {
-								out.hpWoundLevel = this._getWoundLevel(creature.currentHP, creature.currentMaxHP);
-							}
-	
-							out.conditions = creature.status.map((status) => {
-								status = status.toLowerCase();
-								const statusData = conditionData[this.settings.system][status];
-	
-								if (this.conditions[status] === undefined) {
-									this.conditions[status] = {};
-								}
-								
-								if (this.conditions[status][creature.id] === undefined) {
-									this.conditions[status][creature.id] = uuidv4();
-								}
-								
-								return {
-									entity: statusData,
-									rounds: null,
-									id: this.conditions[status][creature.id]
-								};
-							});
-	
-							if (creatureOrds[out.name] === undefined) {
-								creatureOrds[out.name] = false;
-							} else if (creatureOrds[out.name] === false) {
-								creatureOrds[out.name] = true;
-							}
-	
-							return out;
-						}).filter((v) => v !== null);
-	
-						for (const [key, value] of Object.entries(creatureOrds)) {
-							if (value !== true) {
-								continue;
-							}
-	
-							var i = 1;
-	
-							rows.forEach((val) => {
-								if (val.name == key) {
-									val.ordinal = i;
-									i += 1;
-								}
-							});
-						}
-	
-						rows.sort((a, b) => {
-							return b.initiative - a.initiative;
-						});
-	
-						conn.dataChannel.send(JSON.stringify({
-							head: {
-								type: 'server',
-								version: '0.0.2'
-							},
-							data: {
-								type: 'state',
-								payload: {
-									round: data.round,
-									rows
-								}
-							}
-						}));
-					} else {
-						const rows = data.creatures.map((creature) => {
-							if (creature.hidden) {
-								return null;
-							}
-	
-							const out = {
-								n: creature.name,
-								i: creature.initiative,
-								a: creature.active ? 1 : 0,
-								k: []
-							};
-	
-							if (creature.display) out.m = creature.display;
-	
-							if (creature.player) {
-								out.h = creature.currentHP;
-								out.g = creature.currentMaxHP;
-							} else {
-								out.hh = this._getWoundLevel(creature.currentHP, creature.currentMaxHP);
-							}
-	
-							out.c = creature.status.map((status) => {
-								status = status.toLowerCase();
-								const statusData = conditionData[this.settings.system][status];
-								statusData.turns = null;
-								return statusData;
-							});
-	
-							if (creatureOrds[out.n] === undefined) {
-								creatureOrds[out.n] = false;
-							} else if (creatureOrds[out.n] === false) {
-								creatureOrds[out.n] = true;
-							}
-	
-							return out;
-						}).filter((v) => v !== null);
-
-						for (const [key, value] of Object.entries(creatureOrds)) {
-							if (value !== true) {
-								continue;
-							}
-	
-							var i = 1;
-	
-							rows.forEach((val) => {
-								if (val.n == key) {
-									val.o = i;
-									i += 1;
-								}
-							});
-						}
-
-						rows.sort((a, b) => {
-							return b.i - a.i;
-						});
-
-						conn.dataChannel.send(JSON.stringify({
-							head: {
-								type: 'server',
-								version: '0.0.2'
-							},
-							data: {
-								c: [],
-								n: data.round,
-								r: rows
-							}
-						}))
-					}
-                }
-            });
-
 			if (!this.initLoaded) {
 				if ((document.querySelectorAll('div[data-type="initiative-tracker-view"]').length > 0) && (document.querySelectorAll('div.web-init-view').length === 0)) {
 					this.initLoaded = true;
@@ -381,34 +475,46 @@ export default class WebInitTracker extends Plugin {
 					this.copyField.setAttribute('aria-label', 'Copy token');
 					setIcon(this.copyField, 'copy');
 					this.copyField.setAttribute('value', this.server.id);
+
 					this.copyField.onclick = () => {
 						navigator.clipboard.writeText(this.server.id);
 						new Notice('Copied token to clipboard');
 					};
+
+					this.app.plugins.plugins['initiative-tracker'].tracker.subscribe(this.updateServer.bind(this));
+
+					this.app.plugins.plugins['initiative-tracker'].tracker.round.subscribe((round) => {
+						this.round = round;
+					});
 				}
 			} else {
 				this.copyField.setAttribute('value', this.server.id);
 			}
-        }, 100);
+		}, 100);
 
-        this.registerInterval(interval);
+		this.server.on('connection', (conn) => {
+			setTimeout(() => this.firstMessage(conn), 500);
+		});
+		
+		this.registerInterval(interval);
 	}
 
 	loadClient() {
-		this.server = new PeerVeClient();
+		this.client = new PeerVeClient();
 	}
 
 	async onload() {
 		this.initLoaded = false;
+		this.round = 1;
 
 		await this.loadSettings();
 
 		if (!this.app.plugins.enabledPlugins.has('initiative-tracker')) {
-			console.log('Not detecting Initiative Tracker plugin, disabling...');
+			new Notice('Not detecting Initiative Tracker plugin, disabling Web Initiative Tracker...');
 			this.app.plugins.disablePluginAndSave('obsidian-web-init-tracker');
 		}
 
-		//this.loadServer();
+		this.loadServer();
 		this.loadClient();
 
 		this.addSettingTab(new WebInitTrackerSettingsTab(this.app, this));
@@ -418,7 +524,7 @@ export default class WebInitTracker extends Plugin {
 		
 	}
 
-	_getWoundLevel(currentHp, maxHp) {
+	_getWoundLevel(currentHp: number, maxHp: number): number {
 		const pctHp = Math.round(Math.max(Math.min(100 * currentHp / maxHp, 100), 0));
 
 		if (pctHp === 100) return 0; // healthy
